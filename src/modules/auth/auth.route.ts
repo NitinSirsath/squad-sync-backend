@@ -1,8 +1,5 @@
 import express from "express";
-import {
-  getLogin,
-  getRegister,
-} from "../../controllers/auth/authController.ts";
+import { getLogin, getRegister } from "./controllers/auth.controllers.ts";
 
 const authRoutes = express.Router();
 

@@ -1,8 +1,8 @@
 import express, { Request, Response } from "express";
 import connectDB from "./config/mongoDB.config.ts";
-import authRoutes from "./routes/auth/authRoutes.ts";
 import { config } from "dotenv";
-import { userRoutes } from "./routes/user/userRoutes.ts";
+import authRoutes from "./modules/auth/auth.route.ts";
+import { userRoutes } from "./modules/user/user.route.ts";
 
 config();
 const app = express();
@@ -22,3 +22,4 @@ app.listen(port, () => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/group", userRoutes);

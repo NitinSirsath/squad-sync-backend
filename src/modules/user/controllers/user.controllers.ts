@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import jsonwebtoken, { JwtPayload } from "jsonwebtoken";
-import { handleError } from "../../utils/errorHandler.ts";
-import { UserType } from "../../types/user.types.ts";
-import userCollection from "../../models/user/userModels.ts";
+import { UserType } from "../../../types/user.types.ts";
+import userCollection from "../../../models/user/userModels.ts";
+import { handleError } from "../../../utils/errorHandler.ts";
 
 interface DecodedUserToken extends JwtPayload {
   user: UserType;

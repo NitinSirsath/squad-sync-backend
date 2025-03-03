@@ -1,11 +1,11 @@
 import express from "express";
 import { authenticateToken } from "../../middleware/authenticateToken.ts";
 import {
-  deleteUser,
-  getAllUsers,
   getUserProfile,
+  getAllUsers,
+  deleteUser,
   updateUserProfile,
-} from "../../controllers/user/userController.ts";
+} from "./controllers/user.controllers.ts";
 
 const userRoutes = express.Router();
 

@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import userCollection from "../../models/user/userModels.ts";
-import { UserType } from "../../types/user.types.ts";
 import bcrypt from "bcryptjs";
 import jsonwebtoken from "jsonwebtoken";
+import userCollection from "../../../models/user/userModels.ts";
+import { UserType } from "../../../types/user.types.ts";
 
 const getLogin = async (req: Request, res: Response) => {
   try {
