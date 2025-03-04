@@ -1,42 +1,39 @@
+import { NextFunction, Response } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import { Request, Response, NextFunction } from "express";
+import { AuthenticatedRequest } from "../types/authRequest.types.ts";
 
-// Define an extended Request type to include user property
-declare module "express-serve-static-core" {
-  interface Request {
-    user?: string | JwtPayload;
-  }
-}
-
-const authenticateToken = async (
-  req: Request,
+export const authenticateToken = (
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-): Promise<void> => {
+): void => {
   try {
-    const authHeader: string | undefined = req.headers["authorization"];
-    const token: string | undefined = authHeader && authHeader.split(" ")[1];
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
 
     if (!token) {
-      res
-        .status(401)
-        .json({ success: false, error: "Unauthorized: Token missing" });
+      res.status(401).json({ error: "Unauthorized: Token missing" });
       return;
     }
 
-    jwt.verify(token, process.env.JWT_SECRET as string, (err, user) => {
-      if (err) {
-        res
-          .status(403)
-          .json({ success: false, error: "Unauthorized: Invalid token" });
-        return;
-      }
-      req.user = user;
-      next();
-    });
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET as string
+    ) as JwtPayload;
+
+    if (!decoded || typeof decoded !== "object" || !decoded.user) {
+      res.status(401).json({ error: "Invalid Token" });
+      return;
+    }
+
+    req.user = {
+      id: decoded.user._id, // Ensure correct assignment
+      email: decoded.user.email,
+      role: decoded.user.role,
+    };
+
+    next();
   } catch (error) {
-    res.status(500).json({ success: false, error: "Internal Server Error" });
+    res.status(401).json({ error: "Unauthorized: Invalid token" });
   }
 };
-
-export { authenticateToken };
