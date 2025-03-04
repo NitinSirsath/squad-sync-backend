@@ -1,8 +1,8 @@
 import { Response } from "express";
 import GroupModel, { IGroup } from "../models/group.model.ts";
-import GroupMemberModel from "../../groupMembers/controllers/groupMember.controllers.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
+import GroupMemberModel from "../../groupMembers/model/groupMember.model.ts";
 
 export const createGroup = async (
   req: AuthenticatedRequest,

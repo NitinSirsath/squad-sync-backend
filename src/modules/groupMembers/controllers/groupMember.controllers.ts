@@ -1,26 +1,100 @@
-import mongoose, { Schema, Document } from "mongoose";
+import { Response } from "express";
+import GroupMemberModel from "../model/groupMember.model.ts";
+import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 
-export interface IGroupMember extends Document {
-  groupId: mongoose.Types.ObjectId; // Reference to Group
-  userId: mongoose.Types.ObjectId; // Reference to User
-  role: "admin" | "member" | "guest"; // User roles in the group
-  joinedAt: Date; // When the user joined the group
-}
+// 🔹 API: Add a Member to a Group
+export const addMemberToGroup = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { groupId, userId, role } = req.body;
+    const adminId = req.user?.id; // Authenticated admin
 
-// Define Group Member Schema
-const GroupMemberSchema = new Schema<IGroupMember>({
-  groupId: { type: Schema.Types.ObjectId, ref: "Group", required: true },
-  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  role: { type: String, enum: ["admin", "member", "guest"], default: "member" },
-  joinedAt: { type: Date, default: Date.now },
-});
+    // Check if the user is an admin
+    const admin = await GroupMemberModel.findOne({
+      groupId,
+      userId: adminId,
+      role: "admin",
+    });
+    if (!admin) {
+      res.status(403).json({ error: "Only group admins can add members" });
+      return;
+    }
 
-// Add Index for Faster Queries
-GroupMemberSchema.index({ groupId: 1, userId: 1 }, { unique: true });
+    // Check if user is already in the group
+    const existingMember = await GroupMemberModel.findOne({ groupId, userId });
+    if (existingMember) {
+      res.status(400).json({ error: "User is already in the group" });
+      return;
+    }
 
-const GroupMemberModel = mongoose.model<IGroupMember>(
-  "GroupMember",
-  GroupMemberSchema
-);
+    // Add new member
+    const newMember = new GroupMemberModel({ groupId, userId, role });
+    await newMember.save();
 
-export default GroupMemberModel;
+    res.status(201).json({ message: "User added to group", newMember });
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// 🔹 API: Remove a Member from a Group
+export const removeMemberFromGroup = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { groupId, userId } = req.body;
+    const adminId = req.user?.id;
+
+    // Check if the requester is an admin
+    const admin = await GroupMemberModel.findOne({
+      groupId,
+      userId: adminId,
+      role: "admin",
+    });
+    if (!admin) {
+      res.status(403).json({ error: "Only group admins can remove members" });
+      return;
+    }
+
+    // Prevent self-removal
+    if (userId === adminId) {
+      res.status(400).json({ error: "Admin cannot remove themselves" });
+      return;
+    }
+
+    // Remove member
+    const removed = await GroupMemberModel.findOneAndDelete({
+      groupId,
+      userId,
+    });
+    if (!removed) {
+      res.status(404).json({ error: "User not found in group" });
+      return;
+    }
+
+    res.status(200).json({ message: "User removed from group" });
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// 🔹 API: Get All Members of a Group
+export const getGroupMembers = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { groupId } = req.params;
+
+    const members = await GroupMemberModel.find({ groupId })
+      .populate("userId", "username email profilePicture role")
+      .select("role joinedAt");
+
+    res.status(200).json({ members });
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};

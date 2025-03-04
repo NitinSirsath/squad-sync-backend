@@ -1,5 +1,11 @@
 import mongoose, { Schema } from "mongoose";
-import { IGroupMember } from "../controllers/groupMember.controllers.ts";
+
+export interface IGroupMember extends Document {
+  groupId: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  role: "admin" | "member" | "guest";
+  joinedAt: Date;
+}
 
 // Define Group Member Schema
 const GroupMemberSchema = new Schema<IGroupMember>({
