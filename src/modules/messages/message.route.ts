@@ -7,7 +7,11 @@ import {
 
 const messageRoutes = express.Router();
 
-messageRoutes.get("/:groupId/messages", authenticateToken, getGroupMessages);
+messageRoutes.get(
+  "/:groupId/group-messages",
+  authenticateToken,
+  getGroupMessages
+);
 messageRoutes.post("/send-message", authenticateToken, sendMessage); // ✅ New Route
 
 export default messageRoutes;
