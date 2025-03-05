@@ -64,13 +64,35 @@ const getUserProfile = async (req: Request, res: Response) => {
 
 const updateUserProfile = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, username, email }: UserType = req.body;
-    const updateU = await userCollection.findOneAndUpdate(
+    const { firstName, lastName, username, email, _id }: UserType = req.body;
+    const cacheKey = `user:${_id}`;
+    const updatedUser = await userCollection.findOneAndUpdate(
       { email },
       { firstName: firstName, lastName: lastName, username: username },
       { new: true }
     );
-    res.status(200).json({ updateU });
+
+    if (!updatedUser) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    await redisClient.del(cacheKey);
+
+    // ✅ Save updated user data in Redis (expires in 1 hour)
+    const userData = {
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      username: updatedUser.username,
+      role: updatedUser.role,
+      email: updatedUser.email,
+      _id: updatedUser._id,
+    };
+
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(userData));
+    res
+      .status(200)
+      .json({ message: `user ${updatedUser.username} is updated` });
   } catch (error) {
     handleError(res, error);
   }
@@ -102,7 +124,9 @@ const getAllUsers = async (req: Request, res: Response) => {
 const deleteUser = async (req: Request, res: Response) => {
   try {
     const { _id } = req.body;
+    const cacheKey = `user:${_id}`;
     await userCollection.deleteOne({ _id: _id });
+    await redisClient.del(cacheKey);
     res.status(200).json({ message: "user deleted" });
   } catch (error) {
     handleError(res, error);
