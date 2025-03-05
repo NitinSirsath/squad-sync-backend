@@ -4,8 +4,8 @@ export interface IMessage extends Document {
   groupId: mongoose.Types.ObjectId;
   senderId: mongoose.Types.ObjectId;
   message: string;
-  messageType: "text" | "image" | "file"; // Supports text, images, files
-  fileUrl?: string; // Optional file/image URL
+  messageType: "text" | "image" | "file";
+  fileUrl?: string;
   createdAt: Date;
 }
 
@@ -24,7 +24,9 @@ const MessageSchema = new Schema<IMessage>(
   { timestamps: true }
 );
 
-MessageSchema.index({ groupId: 1, createdAt: -1 }); // ✅ Optimize query performance
+// ✅ Indexes to optimize message retrieval
+MessageSchema.index({ groupId: 1, createdAt: -1 }); // Query messages by group, sorted by time
+MessageSchema.index({ senderId: 1, createdAt: -1 }); // Query messages by sender
 
 const MessageModel = mongoose.model<IMessage>("Message", MessageSchema);
 
