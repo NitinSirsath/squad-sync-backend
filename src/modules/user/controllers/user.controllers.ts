@@ -3,6 +3,7 @@ import jsonwebtoken, { JwtPayload } from "jsonwebtoken";
 import { UserType } from "../../../types/user.types.ts";
 import userCollection from "../../../models/user/userModels.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
+import redisClient from "../../../config/redis.config.ts";
 
 interface DecodedUserToken extends JwtPayload {
   user: UserType;
@@ -23,22 +24,44 @@ const getUserProfile = async (req: Request, res: Response) => {
       process.env.JWT_SECRET as string
     ) as DecodedUserToken; // Explicit type assertion
 
+    const cacheKey = `user:${decoded?.user?._id}`;
+
+    const cacheUserInfo = await redisClient.get(cacheKey);
+
+    if (cacheUserInfo) {
+      res.status(200).json({ userInfo: JSON.parse(cacheUserInfo) });
+      return;
+    }
+
     const userObject: UserType | null = await userCollection.findOne({
       email: decoded.user.email,
     });
 
+    if (!userObject) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const obj = {
+      firstName: userObject.firstName,
+      lastName: userObject.lastName,
+      username: userObject.username,
+      role: userObject.role,
+      email: userObject.email,
+      _id: userObject._id,
+    };
+
+    // ✅ Store in Redis with Expiry (1 Hour)
+    await redisClient.set(cacheKey, JSON.stringify(obj));
+
     res.status(200).json({
-      firstName: userObject?.firstName,
-      lastName: userObject?.lastName,
-      username: userObject?.username,
-      role: userObject?.role,
-      email: userObject?.email,
-      _id: userObject?._id,
+      userInfo: obj,
     });
   } catch (error) {
     handleError(res, error);
   }
 };
+
 const updateUserProfile = async (req: Request, res: Response) => {
   try {
     const { firstName, lastName, username, email }: UserType = req.body;
@@ -55,12 +78,20 @@ const updateUserProfile = async (req: Request, res: Response) => {
 
 const getAllUsers = async (req: Request, res: Response) => {
   try {
+    const cacheKey = "user:all";
+    const cacheUsers = await redisClient.get(cacheKey);
+    if (cacheUsers) {
+      res.status(200).json({ users: JSON.parse(cacheUsers) });
+      return;
+    }
     const users: UserType[] = await userCollection.find().select("-password");
 
     if (!users || users.length === 0) {
       res.status(404).json({ message: "No users found" });
       return;
     }
+
+    await redisClient.set(cacheKey, JSON.stringify(users));
 
     res.status(200).json({ users });
   } catch (error) {
