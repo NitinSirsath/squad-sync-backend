@@ -1,9 +1,21 @@
-import { NextFunction, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import { AuthenticatedRequest } from "../types/authRequest.types.ts";
+import mongoose from "mongoose";
+
+// ✅ Extend Express Request Type Globally
+declare module "express-serve-static-core" {
+  interface Request {
+    user?: {
+      id: mongoose.Types.ObjectId;
+      email: string;
+      role: "admin" | "manager" | "employee";
+      orgId: mongoose.Types.ObjectId; // ✅ Ensure `orgId` is also an ObjectId
+    };
+  }
+}
 
 export const authenticateToken = (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
@@ -26,10 +38,12 @@ export const authenticateToken = (
       return;
     }
 
+    // ✅ Convert id & orgId to `mongoose.Types.ObjectId` to match MongoDB models
     req.user = {
-      id: decoded.user._id, // Ensure correct assignment
+      id: new mongoose.Types.ObjectId(decoded.user._id),
       email: decoded.user.email,
       role: decoded.user.role,
+      orgId: new mongoose.Types.ObjectId(decoded.user.orgId),
     };
 
     next();

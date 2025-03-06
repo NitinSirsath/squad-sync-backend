@@ -5,6 +5,7 @@ export interface AuthenticatedRequest extends Request {
   user?: {
     id: mongoose.Types.ObjectId;
     email: string;
-    role: "admin" | "member" | "guest";
+    role: "admin" | "manager" | "employee";
+    orgId: mongoose.Types.ObjectId; // ✅ Ensure `orgId` exists
   };
 }
