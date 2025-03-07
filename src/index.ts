@@ -6,6 +6,7 @@ import { userRoutes } from "./modules/user/user.route.ts";
 import groupRoutes from "./modules/group/group.route.ts";
 import groupMemberRoutes from "./modules/groupMembers/groupMember.route.ts";
 import messageRoutes from "./modules/messages/message.route.ts";
+import { directMessageRoutes } from "./modules/directMessages/directMessage.route.ts";
 
 config();
 const app = express();
@@ -27,4 +28,5 @@ app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/group", groupRoutes);
 app.use("/api/group-members", groupMemberRoutes);
-app.use("/api/messages", messageRoutes);
+app.use("/api/group-messages", messageRoutes);
+app.use("/api/direct-messages", directMessageRoutes);
