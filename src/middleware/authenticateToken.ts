@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import { AuthenticatedRequest } from "../types/authRequest.types.ts";
 
 export const authenticateToken = (
-  req: Request, // ✅ Keep `Request` type here
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
@@ -27,12 +27,12 @@ export const authenticateToken = (
       return;
     }
 
-    // ✅ Convert `id` and `orgId` to `mongoose.Types.ObjectId`
+    // ✅ Ensure `req.user` is correctly assigned
     (req as AuthenticatedRequest).user = {
       id: new mongoose.Types.ObjectId(decoded.user._id),
       email: decoded.user.email,
       role: decoded.user.role,
-      orgId: new mongoose.Types.ObjectId(decoded.user.orgId), // ✅ Ensure `orgId` is assigned
+      orgId: new mongoose.Types.ObjectId(decoded.user.orgId),
     };
 
     next();

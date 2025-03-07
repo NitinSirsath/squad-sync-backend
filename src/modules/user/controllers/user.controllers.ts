@@ -4,6 +4,8 @@ import { UserType } from "../../../types/user.types.ts";
 import userCollection from "../../../models/user/userModels.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 import redisClient from "../../../config/redis.config.ts";
+import bcrypt from "bcryptjs";
+import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 
 interface DecodedUserToken extends JwtPayload {
   user: UserType;
@@ -130,6 +132,53 @@ const deleteUser = async (req: Request, res: Response) => {
     res.status(200).json({ message: "user deleted" });
   } catch (error) {
     handleError(res, error);
+  }
+};
+
+export const createUser = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { username, email, password, firstName, lastName, role } = req.body;
+
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      return;
+    }
+
+    const creatorId = req.user.id;
+    const orgId = req.user.orgId;
+
+    // ✅ Hash password before storing
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ✅ Create new user
+    const newUser = new userCollection({
+      username,
+      email: email || null,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      role: role || "employee",
+      orgId,
+      createdBy: creatorId,
+    });
+
+    await newUser.save();
+
+    res.status(201).json({
+      message: "User created successfully",
+      user: {
+        _id: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        role: newUser.role,
+        orgId: newUser.orgId,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+    return;
   }
 };
 

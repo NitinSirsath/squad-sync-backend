@@ -45,8 +45,8 @@ const getRegister = async (req: Request, res: Response) => {
       username: username,
       email: email,
       password: passwordHash,
-      firstName: firstName,
-      lastName: lastName,
+      firstName: firstName || "",
+      lastName: lastName || "",
     });
     res.status(200).json({ message: true, createUser });
   } catch (error) {

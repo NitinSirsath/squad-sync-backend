@@ -14,8 +14,8 @@ const userCollectionSchema = new Schema<UserType & Document>(
       enum: ["admin", "manager", "employee"],
       default: "employee",
     },
-    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true }, // ✅ Fix ObjectId type
-    createdBy: { type: Schema.Types.ObjectId, ref: "User" }, // ✅ Track who created user
+    orgId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );

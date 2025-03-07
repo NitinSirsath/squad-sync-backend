@@ -46,6 +46,7 @@ export const getGroupMessages = async (req: Request, res: Response) => {
 
 export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    console.log(req.user, "asssa");
     if (!req.user) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
