@@ -27,7 +27,7 @@ export const authenticateToken = (
       return;
     }
 
-    // ✅ Ensure `req.user` is correctly assigned
+    // ✅ Convert `id` and `orgId` to `mongoose.Types.ObjectId`
     (req as AuthenticatedRequest).user = {
       id: new mongoose.Types.ObjectId(decoded.user._id),
       email: decoded.user.email,
