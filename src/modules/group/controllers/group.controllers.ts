@@ -73,8 +73,21 @@ export const getAllGroups = async (
       return;
     }
 
-    // ✅ Fetch only groups that belong to the active organization
-    const groups = await GroupModel.find({ orgId: activeOrg });
+    const userId = req.user._id;
+
+    // ✅ Fetch all group IDs where the user is a member
+    const userGroupMemberships = await GroupMemberModel.find({ userId }).select(
+      "groupId"
+    );
+    const userGroups = userGroupMemberships.map(
+      (membership) => membership.groupId
+    );
+
+    // ✅ Fetch groups where the user is a member OR the group is public
+    const groups = await GroupModel.find({
+      orgId: activeOrg,
+      $or: [{ _id: { $in: userGroups } }, { isPrivate: false }], // ✅ Show user's groups & public groups
+    });
 
     res.status(200).json({ groups });
   } catch (error) {
