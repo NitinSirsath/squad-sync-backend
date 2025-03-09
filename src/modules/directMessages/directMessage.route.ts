@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticateToken } from "../../middleware/authenticateToken.ts";
 import {
+  getChatList,
   getDirectMessages,
   sendDirectMessage,
 } from "./controllers/directMessage.controllers.ts";
@@ -17,5 +18,7 @@ directMessageRoutes.get(
   authenticateToken,
   getDirectMessages
 );
+
+directMessageRoutes.get("/chat-list", authenticateToken, getChatList);
 
 export { directMessageRoutes };
