@@ -5,6 +5,43 @@ import UserModel from "../../../models/user/userModels.ts";
 import redisClient from "../../../config/redis.config.ts"; // ✅ Import Redis client
 import { handleError } from "../../../utils/errorHandler.ts";
 
+export const markMessagesAsSeen = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { senderId } = req.body;
+    const receiverId = req.user._id;
+
+    if (!senderId) {
+      res.status(400).json({ error: "Sender ID is required" });
+      return;
+    }
+
+    // ✅ Update unseen messages
+    const updateResult = await DirectMessageModel.updateMany(
+      { senderId, receiverId, seen: false },
+      { $set: { seen: true, seenAt: new Date() } }
+    );
+
+    // ✅ Invalidate Redis cache for messages
+    const cacheKey = `directMessages:${receiverId}:${senderId}`;
+    await redisClient.del(cacheKey);
+
+    res.status(200).json({
+      message: "Messages marked as seen",
+      modifiedCount: updateResult.modifiedCount,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const sendDirectMessage = async (
   req: AuthenticatedRequest,
   res: Response
@@ -123,6 +160,7 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
     // ✅ Check Redis cache first
     const cachedChatList = await redisClient.get(cacheKey);
     if (cachedChatList) {
+      console.log("📌 Returning cached chat list");
       res.status(200).json({ chatList: JSON.parse(cachedChatList) });
       return;
     }
@@ -135,7 +173,7 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
         },
       },
       {
-        $sort: { createdAt: -1 }, // ✅ Sort by latest message
+        $sort: { createdAt: -1 },
       },
       {
         $group: {
@@ -151,7 +189,11 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
           lastMessage: { $first: "$message" },
           lastMessageType: { $first: "$messageType" },
           lastMessageTime: { $first: "$createdAt" },
-          seen: { $first: "$seen" },
+          unseenCount: {
+            $sum: {
+              $cond: [{ $eq: ["$seen", false] }, 1, 0],
+            },
+          },
         },
       },
       {
@@ -174,7 +216,7 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
           lastMessage: 1,
           lastMessageType: 1,
           lastMessageTime: 1,
-          seen: 1,
+          unseenCount: 1,
         },
       },
       { $sort: { lastMessageTime: -1 } },
@@ -184,6 +226,7 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
     await redisClient.setEx(cacheKey, 300, JSON.stringify(chatList));
 
     res.status(200).json({ chatList });
+    return;
   } catch (error) {
     handleError(res, error);
   }

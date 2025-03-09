@@ -8,7 +8,8 @@ interface DirectMessage extends Document {
   message: string;
   messageType: "text" | "file";
   fileUrl?: string;
-  seen: boolean; // ✅ Tracks if the message is read
+  seen: boolean;
+  seenAt?: Date;
   createdAt: Date;
 }
 
@@ -22,6 +23,7 @@ const DirectMessageSchema = new Schema<DirectMessage>(
     messageType: { type: String, enum: ["text", "file"], default: "text" },
     fileUrl: { type: String, default: null },
     seen: { type: Boolean, default: false }, // ✅ Track read status
+    seenAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
