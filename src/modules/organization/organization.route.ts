@@ -3,6 +3,7 @@ import { authenticateToken } from "../../middleware/authenticateToken.ts";
 import { authorize } from "../../middleware/authorize.ts";
 import {
   createOrganization,
+  getOrganizationMembers,
   getUserOrganizations,
   switchOrganization,
 } from "./controllers/organization.controllers.ts";
@@ -24,6 +25,11 @@ organizationRoutes.post(
   "/switch-organization",
   authenticateToken,
   switchOrganization
+);
+organizationRoutes.get(
+  "/organization-members",
+  authenticateToken,
+  getOrganizationMembers
 );
 
 export default organizationRoutes;

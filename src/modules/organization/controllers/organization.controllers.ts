@@ -134,3 +134,32 @@ export const getUserOrganizations = async (
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+export const getOrganizationMembers = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      return;
+    }
+
+    const activeOrg = req.user.activeOrg; // ✅ Get active organization from user
+    if (!activeOrg) {
+      res.status(400).json({ error: "No active organization selected" });
+      return;
+    }
+
+    // ✅ Fetch users who belong to the active organization
+    const members = await UserModel.find(
+      { "organizations.orgId": activeOrg }, // ✅ Filter users by activeOrg
+      "-password" // ✅ Exclude password for security
+    ).lean();
+
+    res.status(200).json({ members });
+  } catch (error) {
+    console.error("Error fetching organization members:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
