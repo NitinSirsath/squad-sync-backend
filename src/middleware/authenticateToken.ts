@@ -29,7 +29,7 @@ export const authenticateToken: RequestHandler = async (
       return;
     }
 
-    // ✅ Fetch user from DB (to get organizations)
+    // ✅ Fetch user from DB
     const user: User | null = await UserModel.findById(decoded.user._id).lean();
 
     if (!user) {
@@ -37,10 +37,8 @@ export const authenticateToken: RequestHandler = async (
       return;
     }
 
-    // ✅ Assign organizations
     const organizations = user.organizations || [];
 
-    // ✅ Handle activeOrg assignment (fallback to first org)
     let activeOrg: mongoose.Types.ObjectId | null = null;
     if (user.activeOrg && mongoose.Types.ObjectId.isValid(user.activeOrg)) {
       activeOrg = new mongoose.Types.ObjectId(user.activeOrg);
@@ -48,22 +46,26 @@ export const authenticateToken: RequestHandler = async (
       activeOrg = new mongoose.Types.ObjectId(organizations[0].orgId);
     }
 
-    // ✅ Authentication passed but no organization selected
     if (!activeOrg) {
-      res.status(400).json({ error: "No active organization selected" });
+      res.status(404).json({ error: "Organization ID not found" });
       return;
     }
 
-    // ✅ Assign user details to `req.user`
+    // ✅ Assign user details, including `firstName` and `lastName`
     (req as AuthenticatedRequest).user = {
       _id: new mongoose.Types.ObjectId(user._id),
       email: user.email,
+      firstName: user.firstName || "", // ✅ Ensure these fields exist
+      lastName: user.lastName || "",
+      profilePicture: user.profilePicture || "",
       organizations,
       activeOrg,
     };
 
-    next(); // ✅ Proceed to the next middleware or controller
+    return next();
   } catch (error) {
-    handleError(res, error);
+    console.error("Authentication error:", error);
+    res.status(401).json({ error: "Unauthorized: Invalid token" });
+    return;
   }
 };
