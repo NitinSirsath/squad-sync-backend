@@ -3,13 +3,17 @@ import { authenticateToken } from "../../middleware/authenticateToken.ts";
 import {
   getChatList,
   getDirectMessages,
-  markMessagesAsSeen,
+  markDirectMessagesAsSeen,
   sendDirectMessage,
 } from "./controllers/directMessage.controllers.ts";
 
 const directMessageRoutes = express.Router();
 
-directMessageRoutes.post("/mark-seen", authenticateToken, markMessagesAsSeen);
+directMessageRoutes.post(
+  "/mark-seen",
+  authenticateToken,
+  markDirectMessagesAsSeen
+);
 directMessageRoutes.post(
   "/send-direct-message",
   authenticateToken,

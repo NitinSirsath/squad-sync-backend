@@ -6,7 +6,7 @@ import { handleError } from "../../../utils/errorHandler.ts";
 import redisClient from "../../../config/redis.config.ts";
 import bcrypt from "bcryptjs";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
-import OrganizationModel from "../../../models/organization/organization.model.ts";
+import OrganizationModel from "../../organization/models/organization.model.ts";
 
 interface DecodedUserToken extends JwtPayload {
   user: UserType;

@@ -1,12 +1,10 @@
-import { Request, Response } from "express";
-import OrganizationModel from "../../../models/organization/organization.model.ts";
-import UserModel, {
-  OrganizationMembership,
-  User,
-} from "../../../models/user/userModels.ts";
+import { Response } from "express";
+import UserModel, { User } from "../../../models/user/userModels.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { handleError } from "../../../utils/errorHandler.ts";
+import OrganizationModel from "../models/organization.model.ts";
+import redisClient from "../../../config/redis.config.ts";
 
 export const createOrganization = async (
   req: AuthenticatedRequest,
@@ -70,6 +68,12 @@ export const createOrganization = async (
       activeOrg: newOrg._id, // ✅ Set Active Organization
     });
 
+    await redisClient.setEx(
+      `organization:${newOrg._id}`,
+      6000,
+      JSON.stringify(newOrg)
+    );
+
     res.status(201).json({
       message: "Organization created successfully",
       organization: {
@@ -108,7 +112,7 @@ export const switchOrganization = async (
       activeOrg: orgId,
     });
   } catch (error) {
-    res.status(500).json({ error: "Internal Server Error" });
+    handleError(res, error);
   }
 };
 
@@ -118,7 +122,12 @@ export const getUserOrganizations = async (
 ) => {
   try {
     const userId = req.user?._id;
-
+    const cacheKey = `user:${userId}:organizations`;
+    const cachedOrgs = await redisClient.get(cacheKey);
+    if (cachedOrgs) {
+      res.status(200).json({ organizations: JSON.parse(cachedOrgs) });
+      return;
+    }
     const user = await UserModel.findById(userId).populate(
       "organizations.orgId",
       "name industry"
@@ -128,10 +137,10 @@ export const getUserOrganizations = async (
       res.status(404).json({ error: "User not found" });
       return;
     }
-
+    await redisClient.setEx(cacheKey, 600, JSON.stringify(user.organizations));
     res.status(200).json({ organizations: user.organizations });
   } catch (error) {
-    res.status(500).json({ error: "Internal Server Error" });
+    handleError(res, error);
   }
 };
 
@@ -145,21 +154,31 @@ export const getOrganizationMembers = async (
       return;
     }
 
-    const activeOrg = req.user.activeOrg; // ✅ Get active organization from user
+    const activeOrg = req.user.activeOrg;
     if (!activeOrg) {
       res.status(400).json({ error: "No active organization selected" });
       return;
     }
 
+    // ✅ Check Redis cache first
+    const cacheKey = `organization:${activeOrg}:members`;
+    const cachedMembers = await redisClient.get(cacheKey);
+    if (cachedMembers) {
+      res.status(200).json({ members: JSON.parse(cachedMembers) });
+      return;
+    }
+
     // ✅ Fetch users who belong to the active organization
     const members = await UserModel.find(
-      { "organizations.orgId": activeOrg }, // ✅ Filter users by activeOrg
-      "-password" // ✅ Exclude password for security
+      { "organizations.orgId": activeOrg },
+      "-password"
     ).lean();
+
+    // ✅ Cache the results for 5 minutes
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(members));
 
     res.status(200).json({ members });
   } catch (error) {
-    console.error("Error fetching organization members:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    handleError(res, error);
   }
 };
