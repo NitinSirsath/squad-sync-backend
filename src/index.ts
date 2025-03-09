@@ -7,7 +7,7 @@ import authRoutes from "./modules/auth/auth.route.ts";
 import { userRoutes } from "./modules/user/user.route.ts";
 import groupRoutes from "./modules/group/group.route.ts";
 import groupMemberRoutes from "./modules/groupMembers/groupMember.route.ts";
-import messageRoutes from "./modules/messages/message.route.ts";
+import messageRoutes from "./modules/groupMessages/message.route.ts";
 import { directMessageRoutes } from "./modules/directMessages/directMessage.route.ts";
 import { setupSocketIO } from "./config/directSocket.config.ts";
 import organizationRoutes from "./modules/organization/organization.route.ts";
