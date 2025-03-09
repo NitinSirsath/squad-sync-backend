@@ -1,8 +1,9 @@
 import { Response } from "express";
-import GroupModel, { IGroup } from "../models/group.model.ts";
+import GroupModel from "../models/group.model.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import GroupMemberModel from "../../groupMembers/model/groupMember.model.ts";
+import redisClient from "../../../config/redis.config.ts";
 
 export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -47,6 +48,9 @@ export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
       role: "admin",
     });
 
+    // ✅ Invalidate Redis cache for group list
+    await redisClient.del(`groups:${orgId}:${createdBy}`);
+
     res.status(201).json({
       message: "Group created successfully",
       group: newGroup,
@@ -67,13 +71,20 @@ export const getAllGroups = async (
     }
 
     const activeOrg = req.user.activeOrg; // ✅ Get active organization
-
     if (!activeOrg) {
       res.status(400).json({ error: "No active organization selected" });
       return;
     }
 
     const userId = req.user._id;
+    const cacheKey = `groups:${activeOrg}:${userId}`;
+
+    // ✅ Check Redis cache first
+    const cachedGroups = await redisClient.get(cacheKey);
+    if (cachedGroups) {
+      res.status(200).json({ groups: JSON.parse(cachedGroups) });
+      return;
+    }
 
     // ✅ Fetch all group IDs where the user is a member
     const userGroupMemberships = await GroupMemberModel.find({ userId }).select(
@@ -89,9 +100,11 @@ export const getAllGroups = async (
       $or: [{ _id: { $in: userGroups } }, { isPrivate: false }], // ✅ Show user's groups & public groups
     });
 
+    // ✅ Store in Redis (cache expires in 10 minutes)
+    await redisClient.setEx(cacheKey, 600, JSON.stringify(groups));
+
     res.status(200).json({ groups });
   } catch (error) {
-    console.error("Error fetching groups:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    handleError(res, error);
   }
 };
