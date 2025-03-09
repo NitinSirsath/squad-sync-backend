@@ -36,15 +36,23 @@ export const createOrganization = async (
     // ✅ Fetch the full user from DB (to get organizations)
     const user: User | null = await UserModel.findById(decoded.user._id).lean();
 
-    if (!user) {
-      res.status(401).json({ error: "User not found" });
+    const userId = user?._id; // ✅ Authenticated User
+
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
     }
 
-    const userId = user?._id; // ✅ Authenticated User
-
     if (!organizationName) {
       res.status(400).json({ error: "Organization name is required" });
+      return;
+    }
+
+    // ✅ Ensure user does not already own another organization
+    const existingOrg = await OrganizationModel.findOne({ admin: userId });
+
+    if (existingOrg) {
+      res.status(400).json({ error: "You already own an organization." });
       return;
     }
 

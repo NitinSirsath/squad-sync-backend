@@ -38,12 +38,12 @@ const UserSchema = new Schema<User>(
         },
       },
     ],
-    activeOrg: { type: Schema.Types.ObjectId, ref: "Organization" }, // ✅ Track active org
+    activeOrg: { type: Schema.Types.ObjectId, ref: "Organization" },
   },
   { timestamps: true }
 );
 
-// ✅ Indexes for faster queries
+// ✅ Keep only one set of indexes
 UserSchema.index({ email: 1 }, { unique: true, sparse: true });
 UserSchema.index({ username: 1 }, { unique: true });
 UserSchema.index({ "organizations.orgId": 1 }); // ✅ Optimize org-based lookups
