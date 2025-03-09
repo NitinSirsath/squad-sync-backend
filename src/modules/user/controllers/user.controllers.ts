@@ -66,42 +66,6 @@ const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
-const updateUserProfile = async (req: Request, res: Response) => {
-  try {
-    const { firstName, lastName, username, email, _id }: UserType = req.body;
-    const cacheKey = `user:${_id}`;
-    const updatedUser = await userCollection.findOneAndUpdate(
-      { email },
-      { firstName: firstName, lastName: lastName, username: username },
-      { new: true }
-    );
-
-    if (!updatedUser) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-
-    await redisClient.del(cacheKey);
-
-    // ✅ Save updated user data in Redis (expires in 1 hour)
-    const userData = {
-      firstName: updatedUser.firstName,
-      lastName: updatedUser.lastName,
-      username: updatedUser.username,
-      role: updatedUser.role,
-      email: updatedUser.email,
-      _id: updatedUser._id,
-    };
-
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(userData));
-    res
-      .status(200)
-      .json({ message: `user ${updatedUser.username} is updated` });
-  } catch (error) {
-    handleError(res, error);
-  }
-};
-
 const getAllUsers = async (req: Request, res: Response) => {
   try {
     const cacheKey = "user:all";
@@ -151,9 +115,7 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
-    const adminId = req.user._id;
     const activeOrg = req.user.activeOrg;
-
     if (!activeOrg) {
       res.status(400).json({ error: "No active organization selected" });
       return;
@@ -163,7 +125,7 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
     let user = await userCollection.findOne({ email });
 
     if (user) {
-      // ✅ Check if user is already part of the organization
+      // ✅ If user exists, check if they are already in the organization
       const isAlreadyInOrg = user.organizations.some(
         (org) => org.orgId.toString() === activeOrg.toString()
       );
@@ -175,23 +137,25 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
         return;
       }
 
-      // ✅ Add existing user to the organization
+      // ✅ Invite existing user (add organization details)
       await userCollection.findByIdAndUpdate(user._id, {
         $push: { organizations: { orgId: activeOrg, role } },
       });
 
-      // ✅ Also update the `OrganizationModel` to track new members
       await OrganizationModel.findByIdAndUpdate(activeOrg, {
-        $push: { members: user._id },
+        $push: { members: { userId: user._id, role, joinedAt: new Date() } },
       });
+
+      // 🔥 Invalidate Organization Cache
+      await redisClient.del(`organization:${activeOrg}:members`);
+      await redisClient.del(`organization:${activeOrg}`);
 
       res.status(200).json({ message: "User invited to organization" });
       return;
     }
 
-    // ✅ If user does not exist, create a new one
+    // ✅ If user does not exist, create a new user
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const newUser = await userCollection.create({
       username,
       email,
@@ -199,31 +163,54 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
       firstName,
       lastName,
       profilePicture: "",
-      organizations: [{ orgId: activeOrg, role }], // ✅ Assign organization
-      activeOrg, // ✅ Default to first organization
+      organizations: [{ orgId: activeOrg, role }],
+      activeOrg,
     });
 
-    // ✅ Also update the `OrganizationModel` to track new members
+    // ✅ Add new user to organization
     await OrganizationModel.findByIdAndUpdate(activeOrg, {
-      $push: { members: newUser._id },
+      $push: { members: { userId: newUser._id, role, joinedAt: new Date() } },
     });
+
+    // 🔥 Invalidate Organization Cache
+    await redisClient.del(`organization:${activeOrg}:members`);
+    await redisClient.del(`organization:${activeOrg}`);
 
     res.status(201).json({
       message: "User created and added to organization",
-      user: {
-        _id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        organizations: newUser.organizations,
-        activeOrg: newUser.activeOrg, // ✅ Ensure frontend knows the active org
-      },
+      user: newUser,
     });
   } catch (error) {
-    console.error("Error creating user:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    handleError(res, error);
   }
 };
 
-export { getUserProfile, updateUserProfile, getAllUsers, deleteUser };
+const updateUserProfile = async (req: Request, res: Response) => {
+  try {
+    const { firstName, lastName, username, email, _id }: UserType = req.body;
+    const cacheKey = `user:${_id}`;
+
+    const updatedUser = await userCollection.findOneAndUpdate(
+      { email },
+      { firstName, lastName, username },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    // 🔥 Invalidate User Cache
+    await redisClient.del(cacheKey);
+
+    // ✅ Save updated user data in Redis
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(updatedUser));
+
+    res.status(200).json({ message: `User ${updatedUser.username} updated` });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export { getUserProfile, getAllUsers, deleteUser, updateUserProfile };
