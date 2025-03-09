@@ -3,6 +3,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import mongoose from "mongoose";
 import { AuthenticatedRequest } from "../types/authRequest.types.ts";
 import UserModel, { User } from "../models/user/userModels.ts";
+import { handleError } from "../utils/errorHandler.ts";
 
 export const authenticateToken: RequestHandler = async (
   req: Request,
@@ -28,7 +29,7 @@ export const authenticateToken: RequestHandler = async (
       return;
     }
 
-    // ✅ Fetch the full user from DB (to get organizations)
+    // ✅ Fetch user from DB (to get organizations)
     const user: User | null = await UserModel.findById(decoded.user._id).lean();
 
     if (!user) {
@@ -36,10 +37,10 @@ export const authenticateToken: RequestHandler = async (
       return;
     }
 
-    // ✅ Allow new users without organizations to pass authentication
+    // ✅ Assign organizations
     const organizations = user.organizations || [];
 
-    // ✅ Handle activeOrg assignment (fallback to first org or null)
+    // ✅ Handle activeOrg assignment (fallback to first org)
     let activeOrg: mongoose.Types.ObjectId | null = null;
     if (user.activeOrg && mongoose.Types.ObjectId.isValid(user.activeOrg)) {
       activeOrg = new mongoose.Types.ObjectId(user.activeOrg);
@@ -47,23 +48,22 @@ export const authenticateToken: RequestHandler = async (
       activeOrg = new mongoose.Types.ObjectId(organizations[0].orgId);
     }
 
+    // ✅ Authentication passed but no organization selected
     if (!activeOrg) {
-      res.status(404).json({ error: "Organization ID not found" });
+      res.status(400).json({ error: "No active organization selected" });
       return;
     }
 
-    // ✅ Assign user details, including all organizations & activeOrg
+    // ✅ Assign user details to `req.user`
     (req as AuthenticatedRequest).user = {
       _id: new mongoose.Types.ObjectId(user._id),
       email: user.email,
       organizations,
-      activeOrg, // Can be null for new users
+      activeOrg,
     };
 
-    return next(); // ✅ Explicitly return `next()`
+    next(); // ✅ Proceed to the next middleware or controller
   } catch (error) {
-    console.error("Authentication error:", error);
-    res.status(401).json({ error: "Unauthorized: Invalid token" });
-    return; // ✅ Ensure the function exits correctly
+    handleError(res, error);
   }
 };
