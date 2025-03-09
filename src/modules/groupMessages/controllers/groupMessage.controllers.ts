@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose"; // ✅ Import mongoose for ObjectId validation
-import MessageModel from "../models/message.model.ts";
+import MessageModel from "../models/groupMessage.model.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 import redisClient from "../../../config/redis.config.ts";

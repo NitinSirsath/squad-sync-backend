@@ -3,7 +3,7 @@ import { authenticateToken } from "../../middleware/authenticateToken.ts";
 import {
   getGroupMessages,
   sendMessage,
-} from "./controllers/message.controllers.ts";
+} from "./controllers/groupMessage.controllers.ts";
 
 const messageRoutes = express.Router();
 

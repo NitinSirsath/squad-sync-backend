@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import http from "http";
 import { authenticateSocket } from "../middleware/authenticateSocket.ts";
 import { AuthenticatedSocketType } from "../types/socket/socket.types.ts";
-import MessageModel from "../modules/groupMessages/models/message.model.ts";
+import MessageModel from "../modules/groupMessages/models/groupMessage.model.ts";
 
 const activeUsers = new Map<string, string>(); // Track online users
 
