@@ -1,15 +1,23 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Response } from "express";
 import { AuthenticatedRequest } from "../types/authRequest.types.ts";
 
-export const authorize =
-  (allowedRoles: string[]) =>
-  (req: Request, res: Response, next: NextFunction): void => {
-    const authReq = req as AuthenticatedRequest;
+export const authorize = (allowedRoles: string[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
 
-    if (!authReq.user || !allowedRoles.includes(authReq.user.role)) {
+    const activeOrgDetails = req.user.organizations.find(
+      (org) =>
+        req.user && org.orgId.toString() === req.user.activeOrg.toString()
+    );
+
+    if (!activeOrgDetails || !allowedRoles.includes(activeOrgDetails.role)) {
       res.status(403).json({ error: "Access denied" });
       return;
     }
 
-    next(); // ✅ Ensure the middleware always calls next()
+    next();
   };
+};

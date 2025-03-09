@@ -16,7 +16,7 @@ export const createGroup = async (
 
     const { name, description, isPrivate, groupIcon, category }: IGroup =
       req.body;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     // Check if group name already exists
     const existingGroup = await GroupModel.findOne({ name });

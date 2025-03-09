@@ -9,7 +9,7 @@ export const addMemberToGroup = async (
 ) => {
   try {
     const { groupId, userId, role } = req.body;
-    const adminId = req.user?.id; // Authenticated admin
+    const adminId = req.user?._id; // Authenticated admin
 
     // Check if the user is an admin
     const admin = await GroupMemberModel.findOne({
@@ -46,7 +46,7 @@ export const removeMemberFromGroup = async (
 ) => {
   try {
     const { groupId, userId } = req.body;
-    const adminId = req.user?.id;
+    const adminId = req.user?._id;
 
     // Check if the requester is an admin
     const admin = await GroupMemberModel.findOne({

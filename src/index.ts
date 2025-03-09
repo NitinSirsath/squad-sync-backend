@@ -10,6 +10,7 @@ import groupMemberRoutes from "./modules/groupMembers/groupMember.route.ts";
 import messageRoutes from "./modules/messages/message.route.ts";
 import { directMessageRoutes } from "./modules/directMessages/directMessage.route.ts";
 import { setupSocketIO } from "./config/directSocket.config.ts";
+import organizationRoutes from "./modules/organization/organization.route.ts";
 
 config();
 const app = express();
@@ -38,6 +39,7 @@ app.use("/api/group", groupRoutes);
 app.use("/api/group-members", groupMemberRoutes);
 app.use("/api/group-messages", messageRoutes);
 app.use("/api/direct-messages", directMessageRoutes);
+app.use("/api/organization", organizationRoutes);
 
 // ✅ Connect Database
 connectDB();

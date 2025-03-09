@@ -1,10 +1,9 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-interface Organization extends Document {
+export interface Organization extends Document {
   name: string;
-  createdBy?: mongoose.Types.ObjectId; // ✅ Can be null initially
-  admins: mongoose.Types.ObjectId[];
-  membersCount: number;
+  admin: mongoose.Types.ObjectId; // ✅ Single Admin
+  members: mongoose.Types.ObjectId[]; // ✅ Store members
   industry?: string;
   logo?: string;
   settings?: {
@@ -18,9 +17,8 @@ interface Organization extends Document {
 const OrganizationSchema = new Schema<Organization>(
   {
     name: { type: String, required: true, unique: true, trim: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null }, // ✅ Optional at first
-    admins: [{ type: Schema.Types.ObjectId, ref: "User", unique: true }], // ✅ Store admin IDs
-    membersCount: { type: Number, default: 1 },
+    admin: { type: Schema.Types.ObjectId, ref: "User", required: true }, // ✅ Only one admin
+    members: [{ type: Schema.Types.ObjectId, ref: "User" }], // ✅ Track members
     industry: { type: String, default: "" },
     logo: { type: String, default: "" },
     settings: {

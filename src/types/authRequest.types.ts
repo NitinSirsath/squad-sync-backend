@@ -1,11 +1,11 @@
-import { Request } from "express";
 import mongoose from "mongoose";
+import { Request } from "express";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
-    id: mongoose.Types.ObjectId;
+    _id: mongoose.Types.ObjectId;
     email: string;
-    role: "admin" | "manager" | "employee";
-    orgId: mongoose.Types.ObjectId; // ✅ Ensure `orgId` exists
+    organizations: { orgId: mongoose.Types.ObjectId; role: string }[];
+    activeOrg: mongoose.Types.ObjectId;
   };
 }

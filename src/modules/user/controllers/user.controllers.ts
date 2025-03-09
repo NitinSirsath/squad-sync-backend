@@ -6,12 +6,13 @@ import { handleError } from "../../../utils/errorHandler.ts";
 import redisClient from "../../../config/redis.config.ts";
 import bcrypt from "bcryptjs";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
+import OrganizationModel from "../../../models/organization/organization.model.ts";
 
 interface DecodedUserToken extends JwtPayload {
   user: UserType;
 }
 
-const getUserProfile = async (req: Request, res: Response) => {
+const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const authHeader = req.headers["authorization"];
     const token = authHeader && authHeader.split(" ")[1];
@@ -30,10 +31,10 @@ const getUserProfile = async (req: Request, res: Response) => {
 
     const cacheUserInfo = await redisClient.get(cacheKey);
 
-    if (cacheUserInfo) {
-      res.status(200).json({ userInfo: JSON.parse(cacheUserInfo) });
-      return;
-    }
+    // if (cacheUserInfo) {
+    //   res.status(200).json({ userInfo: JSON.parse(cacheUserInfo) });
+    //   return;
+    // }
 
     const userObject: UserType | null = await userCollection.findOne({
       email: decoded.user.email,
@@ -57,7 +58,8 @@ const getUserProfile = async (req: Request, res: Response) => {
     await redisClient.set(cacheKey, JSON.stringify(obj));
 
     res.status(200).json({
-      userInfo: obj,
+      // userInfo: obj,
+      userObject,
     });
   } catch (error) {
     handleError(res, error);
@@ -139,46 +141,88 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { username, email, password, firstName, lastName, role } = req.body;
 
+    if (role === "admin") {
+      res.status(403).json({ error: "Cannot assign admin role" });
+      return;
+    }
+
     if (!req.user) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
     }
 
-    const creatorId = req.user.id;
-    const orgId = req.user.orgId;
+    const adminId = req.user._id;
+    const activeOrg = req.user.activeOrg;
 
-    // ✅ Hash password before storing
+    if (!activeOrg) {
+      res.status(400).json({ error: "No active organization selected" });
+      return;
+    }
+
+    // ✅ Check if the user already exists
+    let user = await userCollection.findOne({ email });
+
+    if (user) {
+      // ✅ Check if user is already part of the organization
+      const isAlreadyInOrg = user.organizations.some(
+        (org) => org.orgId.toString() === activeOrg.toString()
+      );
+
+      if (isAlreadyInOrg) {
+        res
+          .status(400)
+          .json({ error: "User is already a member of this organization" });
+        return;
+      }
+
+      // ✅ Add existing user to the organization
+      await userCollection.findByIdAndUpdate(user._id, {
+        $push: { organizations: { orgId: activeOrg, role } },
+      });
+
+      // ✅ Also update the `OrganizationModel` to track new members
+      await OrganizationModel.findByIdAndUpdate(activeOrg, {
+        $push: { members: user._id },
+      });
+
+      res.status(200).json({ message: "User invited to organization" });
+      return;
+    }
+
+    // ✅ If user does not exist, create a new one
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Create new user
-    const newUser = new userCollection({
+    const newUser = await userCollection.create({
       username,
-      email: email || null,
+      email,
       password: hashedPassword,
       firstName,
       lastName,
-      role: role || "employee",
-      orgId,
-      createdBy: creatorId,
+      profilePicture: "",
+      organizations: [{ orgId: activeOrg, role }], // ✅ Assign organization
+      activeOrg, // ✅ Default to first organization
     });
 
-    await newUser.save();
+    // ✅ Also update the `OrganizationModel` to track new members
+    await OrganizationModel.findByIdAndUpdate(activeOrg, {
+      $push: { members: newUser._id },
+    });
 
     res.status(201).json({
-      message: "User created successfully",
+      message: "User created and added to organization",
       user: {
         _id: newUser._id,
         username: newUser.username,
         email: newUser.email,
         firstName: newUser.firstName,
         lastName: newUser.lastName,
-        role: newUser.role,
-        orgId: newUser.orgId,
+        organizations: newUser.organizations,
+        activeOrg: newUser.activeOrg, // ✅ Ensure frontend knows the active org
       },
     });
   } catch (error) {
+    console.error("Error creating user:", error);
     res.status(500).json({ error: "Internal Server Error" });
-    return;
   }
 };
 

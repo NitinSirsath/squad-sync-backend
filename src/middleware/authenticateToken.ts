@@ -1,13 +1,14 @@
-import { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, Response, RequestHandler } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import mongoose from "mongoose";
 import { AuthenticatedRequest } from "../types/authRequest.types.ts";
+import UserModel, { User } from "../models/user/userModels.ts";
 
-export const authenticateToken = (
+export const authenticateToken: RequestHandler = async (
   req: Request,
   res: Response,
   next: NextFunction
-): void => {
+): Promise<void> => {
   try {
     const authHeader = req.headers["authorization"];
     const token = authHeader && authHeader.split(" ")[1];
@@ -27,16 +28,42 @@ export const authenticateToken = (
       return;
     }
 
-    // ✅ Convert `id` and `orgId` to `mongoose.Types.ObjectId`
+    // ✅ Fetch the full user from DB (to get organizations)
+    const user: User | null = await UserModel.findById(decoded.user._id).lean();
+
+    if (!user) {
+      res.status(401).json({ error: "User not found" });
+      return;
+    }
+
+    // ✅ Allow new users without organizations to pass authentication
+    const organizations = user.organizations || [];
+
+    // ✅ Handle activeOrg assignment (fallback to first org or null)
+    let activeOrg: mongoose.Types.ObjectId | null = null;
+    if (user.activeOrg && mongoose.Types.ObjectId.isValid(user.activeOrg)) {
+      activeOrg = new mongoose.Types.ObjectId(user.activeOrg);
+    } else if (organizations.length > 0) {
+      activeOrg = new mongoose.Types.ObjectId(organizations[0].orgId);
+    }
+
+    if (!activeOrg) {
+      res.status(404).json({ error: "Organization ID not found" });
+      return;
+    }
+
+    // ✅ Assign user details, including all organizations & activeOrg
     (req as AuthenticatedRequest).user = {
-      id: new mongoose.Types.ObjectId(decoded.user._id),
-      email: decoded.user.email,
-      role: decoded.user.role,
-      orgId: new mongoose.Types.ObjectId(decoded.user.orgId),
+      _id: new mongoose.Types.ObjectId(user._id),
+      email: user.email,
+      organizations,
+      activeOrg, // Can be null for new users
     };
 
-    next();
+    return next(); // ✅ Explicitly return `next()`
   } catch (error) {
+    console.error("Authentication error:", error);
     res.status(401).json({ error: "Unauthorized: Invalid token" });
+    return; // ✅ Ensure the function exits correctly
   }
 };

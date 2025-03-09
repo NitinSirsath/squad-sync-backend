@@ -53,7 +53,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const { groupId, message, messageType, fileUrl } = req.body;
-    const senderId = req.user.id;
+    const senderId = req.user._id;
 
     if (!groupId || !message) {
       res.status(400).json({ error: "Group ID and message are required" });

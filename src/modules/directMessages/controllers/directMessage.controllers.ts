@@ -13,7 +13,7 @@ export const sendDirectMessage = async (
     }
 
     const { receiverId, message, messageType, fileUrl } = req.body;
-    const senderId = req.user.id;
+    const senderId = req.user._id;
 
     if (!receiverId || !message) {
       res.status(400).json({ error: "Receiver ID and message are required" });
@@ -46,7 +46,7 @@ export const getDirectMessages = async (
     }
 
     const { userId } = req.params;
-    const currentUserId = req.user.id;
+    const currentUserId = req.user._id;
 
     const messages = await DirectMessageModel.find({
       $or: [
