@@ -4,39 +4,37 @@ import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import UserModel from "../../../models/user/userModels.ts";
 import redisClient from "../../../config/redis.config.ts"; // ✅ Import Redis client
 import { handleError } from "../../../utils/errorHandler.ts";
+import mongoose from "mongoose";
 
-export const markMessagesAsSeen = async (
+export const markDirectMessagesAsSeen = async (
   req: AuthenticatedRequest,
   res: Response
 ) => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: "Unauthorized" });
+      res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
     }
 
-    const { senderId } = req.body;
+    const { senderId } = req.body; // ✅ Mark all messages from sender as seen
     const receiverId = req.user._id;
 
-    if (!senderId) {
-      res.status(400).json({ error: "Sender ID is required" });
+    if (!mongoose.Types.ObjectId.isValid(senderId)) {
+      res.status(400).json({ error: "Invalid senderId format" });
       return;
     }
 
-    // ✅ Update unseen messages
-    const updateResult = await DirectMessageModel.updateMany(
+    // ✅ Update seen status for all unread messages
+    await DirectMessageModel.updateMany(
       { senderId, receiverId, seen: false },
-      { $set: { seen: true, seenAt: new Date() } }
+      { seen: true }
     );
 
-    // ✅ Invalidate Redis cache for messages
+    // ✅ Invalidate Redis cache
     const cacheKey = `directMessages:${receiverId}:${senderId}`;
     await redisClient.del(cacheKey);
 
-    res.status(200).json({
-      message: "Messages marked as seen",
-      modifiedCount: updateResult.modifiedCount,
-    });
+    res.status(200).json({ message: "Messages marked as seen" });
   } catch (error) {
     handleError(res, error);
   }

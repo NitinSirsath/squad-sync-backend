@@ -107,3 +107,46 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     handleError(res, error);
   }
 };
+
+export const markGroupMessagesAsSeen = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      return;
+    }
+
+    const { groupId } = req.body;
+    const userId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(groupId)) {
+      res.status(400).json({ error: "Invalid groupId format" });
+      return;
+    }
+
+    // ✅ Check if user is a group member
+    const isMember = await GroupMemberModel.exists({ groupId, userId });
+    if (!isMember) {
+      res.status(403).json({ error: "Access denied: Not a group member" });
+      return;
+    }
+
+    // ✅ Update seen status for all unread messages
+    await MessageModel.updateMany(
+      { groupId, senderId: { $ne: userId }, seenBy: { $ne: userId } },
+      { $addToSet: { seenBy: userId } }
+    );
+
+    // ✅ Invalidate Redis cache
+    const keys = await redisClient.keys(`group:${groupId}:messages:*`);
+    if (keys.length > 0) {
+      await redisClient.del(keys);
+    }
+
+    res.status(200).json({ message: "Messages marked as seen" });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
