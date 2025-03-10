@@ -58,7 +58,13 @@ export const createOrganization = async (
     const newOrg = await OrganizationModel.create({
       name: organizationName,
       admin: userId, // ✅ Single Admin
-      members: [userId], // ✅ Admin is first member
+      members: [
+        {
+          userId: userId, // ✅ Correct format
+          role: "admin", // ✅ Assign admin role
+          joinedAt: new Date(),
+        },
+      ],
       industry: industry || "",
     });
 
@@ -68,6 +74,7 @@ export const createOrganization = async (
       activeOrg: newOrg._id, // ✅ Set Active Organization
     });
 
+    // ✅ Cache organization data in Redis
     await redisClient.setEx(
       `organization:${newOrg._id}`,
       6000,
