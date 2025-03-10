@@ -4,6 +4,7 @@ import jsonwebtoken from "jsonwebtoken";
 import userCollection from "../../../models/user/userModels.ts";
 import { UserType } from "../../../types/user.types.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
+import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 
 const getLogin = async (req: Request, res: Response) => {
   try {
@@ -69,4 +70,15 @@ const getRegister = async (req: Request, res: Response) => {
   }
 };
 
-export { getLogin, getRegister };
+const getLogout = (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: "not authorized" });
+    }
+    res.status(200).json({ message: "logout successfull" });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export { getLogin, getRegister, getLogout };
