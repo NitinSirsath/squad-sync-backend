@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
-import jsonwebtoken from "jsonwebtoken";
-import userCollection from "../../../models/user/userModels.ts";
+import jsonwebtoken, { JwtPayload } from "jsonwebtoken";
+import userCollection, { User } from "../../../models/user/userModels.ts";
 import { UserType } from "../../../types/user.types.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
+import jwt from "jsonwebtoken";
 
 const getLogin = async (req: Request, res: Response) => {
   try {
@@ -70,8 +71,37 @@ const getRegister = async (req: Request, res: Response) => {
   }
 };
 
-const getLogout = (req: AuthenticatedRequest, res: Response) => {
+const getLogout = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized: Token missing" });
+      return;
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET as string
+    ) as JwtPayload;
+
+    if (!decoded || typeof decoded !== "object" || !decoded.user) {
+      res.status(401).json({ error: "Invalid Token" });
+      return;
+    }
+
+    // ✅ Fetch the full user from DB (to get organizations)
+    const user: User | null = await userCollection
+      .findById(decoded.user._id)
+      .lean();
+
+    const userId = user?._id; // ✅ Authenticated User
+
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      return;
+    }
     if (!req.user) {
       res.status(401).json({ error: "not authorized" });
     }
