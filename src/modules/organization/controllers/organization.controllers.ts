@@ -47,12 +47,12 @@ export const createOrganization = async (
     }
 
     // ✅ Ensure user does not already own another organization
-    const existingOrg = await OrganizationModel.findOne({ admin: userId });
+    // const existingOrg = await OrganizationModel.findOne({ admin: userId });
 
-    if (existingOrg) {
-      res.status(400).json({ error: "You already own an organization." });
-      return;
-    }
+    // if (existingOrg) {
+    //   res.status(400).json({ error: "You already own an organization." });
+    //   return;
+    // }
 
     // ✅ Create Organization with a single admin
     const newOrg = await OrganizationModel.create({
@@ -130,11 +130,15 @@ export const getUserOrganizations = async (
   try {
     const userId = req.user?._id;
     const cacheKey = `user:${userId}:organizations`;
+
+    // Check Redis cache first
     const cachedOrgs = await redisClient.get(cacheKey);
     if (cachedOrgs) {
       res.status(200).json({ organizations: JSON.parse(cachedOrgs) });
       return;
     }
+
+    // Fetch user and populate organizations
     const user = await UserModel.findById(userId).populate(
       "organizations.orgId",
       "name industry"
@@ -144,7 +148,13 @@ export const getUserOrganizations = async (
       res.status(404).json({ error: "User not found" });
       return;
     }
+
+    // Debug log to inspect organizations array
+    console.log("User Organizations:", user.organizations);
+
+    // Cache the full organizations array for 10 minutes
     await redisClient.setEx(cacheKey, 600, JSON.stringify(user.organizations));
+
     res.status(200).json({ organizations: user.organizations });
   } catch (error) {
     handleError(res, error);
