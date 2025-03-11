@@ -11,7 +11,7 @@ import { authorize } from "../../middleware/authorize.ts";
 
 const userRoutes = express.Router();
 
-userRoutes.get("/user-info", authenticateToken, getUserProfile);
+userRoutes.get("/user-info", getUserProfile);
 userRoutes.get("/all-users", authenticateToken, getAllUsers);
 userRoutes.post("/update-user", authenticateToken, updateUserProfile);
 userRoutes.post("/delete-user", authenticateToken, deleteUser);

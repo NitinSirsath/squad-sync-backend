@@ -6,6 +6,7 @@ import { UserType } from "../../../types/user.types.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const getLogin = async (req: Request, res: Response) => {
   try {
@@ -75,7 +76,6 @@ const getLogout = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const authHeader = req.headers["authorization"];
     const token = authHeader && authHeader.split(" ")[1];
-
     if (!token) {
       res.status(401).json({ error: "Unauthorized: Token missing" });
       return;
@@ -92,19 +92,14 @@ const getLogout = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     // ✅ Fetch the full user from DB (to get organizations)
-    const user: User | null = await userCollection
-      .findById(decoded.user._id)
-      .lean();
+    const user: User | null = await userCollection.findById(decoded.user._id);
 
-    const userId = user?._id; // ✅ Authenticated User
-
+    const userId = new mongoose.Types.ObjectId(user?._id); // ✅ Authenticated User
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
     }
-    if (!req.user) {
-      res.status(401).json({ error: "not authorized" });
-    }
+
     res.status(200).json({ message: "logout successfull" });
   } catch (error) {
     handleError(res, error);
