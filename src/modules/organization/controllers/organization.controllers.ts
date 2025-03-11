@@ -4,7 +4,7 @@ import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { handleError } from "../../../utils/errorHandler.ts";
 import OrganizationModel from "../models/organization.model.ts";
-import redisClient from "../../../config/redis.config.ts";
+// import redisClient from "../../../config/redis.config.ts";
 
 export const createOrganization = async (
   req: AuthenticatedRequest,
@@ -75,11 +75,11 @@ export const createOrganization = async (
     });
 
     // ✅ Cache organization data in Redis
-    await redisClient.setEx(
-      `organization:${newOrg._id}`,
-      6000,
-      JSON.stringify(newOrg)
-    );
+    // await redisClient.setEx(
+    //   `organization:${newOrg._id}`,
+    //   6000,
+    //   JSON.stringify(newOrg)
+    // );
 
     res.status(201).json({
       message: "Organization created successfully",
@@ -132,11 +132,11 @@ export const getUserOrganizations = async (
     const cacheKey = `user:${userId}:organizations`;
 
     // Check Redis cache first
-    const cachedOrgs = await redisClient.get(cacheKey);
-    if (cachedOrgs) {
-      res.status(200).json({ organizations: JSON.parse(cachedOrgs) });
-      return;
-    }
+    // const cachedOrgs = await redisClient.get(cacheKey);
+    // if (cachedOrgs) {
+    //   res.status(200).json({ organizations: JSON.parse(cachedOrgs) });
+    //   return;
+    // }
 
     // Fetch user and populate organizations
     const user = await UserModel.findById(userId).populate(
@@ -153,7 +153,7 @@ export const getUserOrganizations = async (
     console.log("User Organizations:", user.organizations);
 
     // Cache the full organizations array for 10 minutes
-    await redisClient.setEx(cacheKey, 600, JSON.stringify(user.organizations));
+    // await redisClient.setEx(cacheKey, 600, JSON.stringify(user.organizations));
 
     res.status(200).json({ organizations: user.organizations });
   } catch (error) {
@@ -179,11 +179,11 @@ export const getOrganizationMembers = async (
 
     // ✅ Check Redis cache first
     const cacheKey = `organization:${activeOrg}:members`;
-    const cachedMembers = await redisClient.get(cacheKey);
-    if (cachedMembers) {
-      res.status(200).json({ members: JSON.parse(cachedMembers) });
-      return;
-    }
+    // const cachedMembers = await redisClient.get(cacheKey);
+    // if (cachedMembers) {
+    //   res.status(200).json({ members: JSON.parse(cachedMembers) });
+    //   return;
+    // }
 
     // ✅ Fetch users who belong to the active organization
     const members = await UserModel.find(
@@ -192,7 +192,7 @@ export const getOrganizationMembers = async (
     ).lean();
 
     // ✅ Cache the results for 5 minutes
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(members));
+    // await redisClient.setEx(cacheKey, 300, JSON.stringify(members));
 
     res.status(200).json({ members });
   } catch (error) {
