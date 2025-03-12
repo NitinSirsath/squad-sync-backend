@@ -2,7 +2,7 @@ import { Response } from "express";
 import DirectMessageModel from "../models/directMessage.model.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import UserModel from "../../../models/user/userModels.ts";
-import redisClient from "../../../config/redis.config.ts"; // ✅ Import Redis client
+// import redisClient from "../../../config/redis.config.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 import mongoose from "mongoose";
 
@@ -32,7 +32,7 @@ export const markDirectMessagesAsSeen = async (
 
     // ✅ Invalidate Redis cache
     const cacheKey = `directMessages:${receiverId}:${senderId}`;
-    await redisClient.del(cacheKey);
+    // await redisClient.del(cacheKey);
 
     res.status(200).json({ message: "Messages marked as seen" });
   } catch (error) {
@@ -50,9 +50,13 @@ export const sendDirectMessage = async (
       return;
     }
 
-    const { receiverId, message, messageType, fileUrl } = req.body;
+    const formData = req.body; // Expecting FormData
+    const receiverId = formData.receiverId;
+    const message = formData.message;
+    const messageType = formData.messageType || "text";
+    const fileUrl = formData.fileURL || null;
+
     const senderId = req.user._id;
-    const senderName = `${req.user.firstName} ${req.user.lastName}`;
     const activeOrg = req.user.activeOrg;
 
     if (!receiverId || !message) {
@@ -60,44 +64,38 @@ export const sendDirectMessage = async (
       return;
     }
 
-    // ✅ Fetch receiver details
+    // ✅ Fetch sender & receiver details
+    const sender = await UserModel.findById(senderId).lean();
     const receiver = await UserModel.findById(receiverId).lean();
-    if (!receiver) {
-      res.status(404).json({ error: "Receiver not found" });
+
+    if (!sender || !receiver) {
+      res.status(404).json({ error: "Sender or Receiver not found" });
       return;
     }
 
-    // ✅ Ensure receiver is in the same organization
+    // ✅ Ensure both users are in the same organization
     const isSameOrganization = receiver.organizations.some(
       (org) => org.orgId.toString() === activeOrg.toString()
     );
 
     if (!isSameOrganization) {
-      res.status(403).json({
-        error: "Cannot message users outside your organization",
-        rec: receiver.organizations,
-        activeOrg,
-      });
+      res
+        .status(403)
+        .json({ error: "Cannot message users outside your organization" });
       return;
     }
 
-    // ✅ Save message in database
+    // ✅ Save message with sender/receiver names
     const newMessage = await DirectMessageModel.create({
       senderId,
-      senderName,
+      senderName: `${sender.firstName} ${sender.lastName}`,
       receiverId,
       receiverName: `${receiver.firstName} ${receiver.lastName}`,
       message,
-      messageType: messageType || "text",
-      fileUrl: fileUrl || null,
+      messageType,
+      fileUrl,
       seen: false,
     });
-
-    // ✅ Invalidate Redis cache for both sender and receiver
-    const senderCacheKey = `directMessages:${senderId}:${receiverId}`;
-    const receiverCacheKey = `directMessages:${receiverId}:${senderId}`;
-    await redisClient.del(senderCacheKey);
-    await redisClient.del(receiverCacheKey);
 
     res.status(201).json({ message: "Message sent", newMessage });
   } catch (error) {
@@ -120,11 +118,11 @@ export const getDirectMessages = async (
     const cacheKey = `directMessages:${currentUserId}:${userId}`;
 
     // ✅ Check Redis cache first
-    const cachedMessages = await redisClient.get(cacheKey);
-    if (cachedMessages) {
-      res.status(200).json({ messages: JSON.parse(cachedMessages) });
-      return;
-    }
+    // const cachedMessages = await redisClient.get(cacheKey);
+    // if (cachedMessages) {
+    //   res.status(200).json({ messages: JSON.parse(cachedMessages) });
+    //   return;
+    // }
 
     // ✅ Fetch messages from MongoDB if not cached
     const messages = await DirectMessageModel.find({
@@ -137,7 +135,7 @@ export const getDirectMessages = async (
       .limit(50);
 
     // ✅ Store in Redis (cache expires in 10 minutes)
-    await redisClient.setEx(cacheKey, 600, JSON.stringify(messages));
+    // await redisClient.setEx(cacheKey, 600, JSON.stringify(messages));
 
     res.status(200).json({ messages });
   } catch (error) {
@@ -156,12 +154,12 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
     const cacheKey = `chatList:${userId}`;
 
     // ✅ Check Redis cache first
-    const cachedChatList = await redisClient.get(cacheKey);
-    if (cachedChatList) {
-      console.log("📌 Returning cached chat list");
-      res.status(200).json({ chatList: JSON.parse(cachedChatList) });
-      return;
-    }
+    // const cachedChatList = await redisClient.get(cacheKey);
+    // if (cachedChatList) {
+    //   console.log("📌 Returning cached chat list");
+    //   res.status(200).json({ chatList: JSON.parse(cachedChatList) });
+    //   return;
+    // }
 
     // ✅ Fetch latest message per unique chat
     const chatList = await DirectMessageModel.aggregate([
@@ -221,7 +219,7 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
     ]);
 
     // ✅ Store result in Redis (expires in 5 minutes)
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(chatList));
+    // await redisClient.setEx(cacheKey, 300, JSON.stringify(chatList));
 
     res.status(200).json({ chatList });
     return;
