@@ -169,7 +169,22 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
         },
       },
       {
-        $sort: { createdAt: -1 },
+        $sort: { createdAt: -1 }, // ✅ Ensure latest messages are sorted first
+      },
+      {
+        $setWindowFields: {
+          partitionBy: {
+            chatWith: {
+              $cond: [
+                { $eq: ["$senderId", userId] },
+                "$receiverId",
+                "$senderId",
+              ],
+            },
+          },
+          sortBy: { createdAt: -1 },
+          output: { lastMessage: { $first: "$message" } },
+        },
       },
       {
         $group: {
@@ -183,12 +198,9 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
             },
           },
           lastMessage: { $first: "$message" },
-          lastMessageType: { $first: "$messageType" },
           lastMessageTime: { $first: "$createdAt" },
           unseenCount: {
-            $sum: {
-              $cond: [{ $eq: ["$seen", false] }, 1, 0],
-            },
+            $sum: { $cond: [{ $eq: ["$seen", false] }, 1, 0] },
           },
         },
       },
@@ -210,12 +222,11 @@ export const getChatList = async (req: AuthenticatedRequest, res: Response) => {
           email: "$chatUser.email",
           profilePicture: "$chatUser.profilePicture",
           lastMessage: 1,
-          lastMessageType: 1,
           lastMessageTime: 1,
           unseenCount: 1,
         },
       },
-      { $sort: { lastMessageTime: -1 } },
+      { $sort: { lastMessageTime: -1 } }, // ✅ Sort the final result by latest message
     ]);
 
     // ✅ Store result in Redis (expires in 5 minutes)

@@ -51,14 +51,17 @@ export const setupSocketIO = (app: Express) => {
 
       console.log("✅ Message saved:", newMessage);
 
-      // Emit to receiver
+      // ✅ Send to receiver
       const receiverSocketId = connectedUsers.get(receiverId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("newMessage", newMessage);
       }
 
-      // Emit to sender for confirmation
-      io.to(socket.id).emit("messageSent", newMessage);
+      // ✅ ALSO send back to sender
+      const senderSocketId = connectedUsers.get(senderId);
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("newMessage", newMessage);
+      }
     });
 
     // Disconnect user
