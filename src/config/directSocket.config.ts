@@ -2,7 +2,9 @@ import { Server } from "socket.io";
 import { createServer } from "http";
 import { Express } from "express";
 import DirectMessageModel from "../modules/directMessages/models/directMessage.model.ts";
+import MessageModel from "../modules/groupMessages/models/groupMessage.model.ts";
 import UserModel from "../models/user/userModels.ts";
+import GroupMemberModel from "../modules/groupMembers/model/groupMember.model.ts";
 
 const connectedUsers = new Map<string, string>(); // Map<userId, socketId>
 
@@ -18,16 +20,16 @@ export const setupSocketIO = (app: Express) => {
   io.on("connection", (socket) => {
     console.log("🔌 New client connected:", socket.id);
 
-    // Register user to socket
+    // ✅ Register user upon connection
     socket.on("registerUser", (userId) => {
       console.log(`📞 User ${userId} registered with Socket ID: ${socket.id}`);
       connectedUsers.set(userId, socket.id);
       io.emit("updateOnlineUsers", Array.from(connectedUsers.keys()));
     });
 
-    // Handle sending a direct message
-    socket.on("sendMessage", async (data) => {
-      console.log("📩 Message received via WebSocket:", data);
+    // ✅ Handle sending a direct message
+    socket.on("sendDirectMessage", async (data) => {
+      console.log("📩 Direct Message received:", data);
 
       const { senderId, receiverId, message, messageType, fileURL } = data;
 
@@ -49,25 +51,68 @@ export const setupSocketIO = (app: Express) => {
         seen: false,
       });
 
-      console.log("✅ Message saved:", newMessage);
+      console.log("✅ Direct Message saved:", newMessage);
 
       // ✅ Send to receiver
       const receiverSocketId = connectedUsers.get(receiverId);
       if (receiverSocketId) {
-        io.to(receiverSocketId).emit("newMessage", newMessage);
+        io.to(receiverSocketId).emit("newDirectMessage", newMessage);
       }
 
       // ✅ ALSO send back to sender
       const senderSocketId = connectedUsers.get(senderId);
       if (senderSocketId) {
-        io.to(senderSocketId).emit("newMessage", newMessage);
+        io.to(senderSocketId).emit("newDirectMessage", newMessage);
       }
 
-      // ✅ Emit a separate event to refresh chat list
+      // ✅ Emit event to refresh chat list
       io.emit("updateChatList");
     });
 
-    // Disconnect user
+    // ✅ Handle group messages
+    socket.on("joinGroup", (groupId) => {
+      socket.join(groupId);
+      console.log(`📌 User joined group ${groupId}`);
+    });
+
+    socket.on("leaveGroup", (groupId) => {
+      socket.leave(groupId);
+      console.log(`❌ User left group ${groupId}`);
+    });
+
+    socket.on("sendGroupMessage", async (data) => {
+      console.log("📩 Group Message received:", data);
+
+      const { groupId, senderId, message, messageType, fileUrl } = data;
+
+      // ✅ Check if sender is a member of the group
+      const isMember = await GroupMemberModel.exists({
+        groupId,
+        userId: senderId,
+      });
+
+      if (!isMember) {
+        return socket.emit(
+          "sendMessageError",
+          "You are not a member of this group."
+        );
+      }
+
+      const newMessage = await MessageModel.create({
+        groupId,
+        senderId,
+        message,
+        messageType,
+        fileUrl,
+      });
+
+      console.log("✅ Group Message saved:", newMessage);
+
+      // ✅ Broadcast message to all group members
+      io.to(groupId).emit("newGroupMessage", newMessage);
+    });
+
+    // ✅ Handle user disconnect
     socket.on("disconnect", () => {
       const userId = [...connectedUsers.entries()].find(
         ([_, socketId]) => socketId === socket.id
