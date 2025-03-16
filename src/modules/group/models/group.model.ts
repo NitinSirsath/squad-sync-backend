@@ -27,7 +27,7 @@ const GroupSchema = new Schema<IGroup>(
   { timestamps: true }
 );
 
-GroupSchema.index({ orgId: 1 }); // ✅ Index for fast org-based lookups
+// GroupSchema.index({ orgId: 1 }); // ✅ Index for fast org-based lookups
 
 const GroupModel = mongoose.model<IGroup>("Group", GroupSchema);
 

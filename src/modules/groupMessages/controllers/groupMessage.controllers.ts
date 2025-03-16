@@ -3,7 +3,7 @@ import mongoose from "mongoose"; // ✅ Import mongoose for ObjectId validation
 import MessageModel from "../models/groupMessage.model.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
-import redisClient from "../../../config/redis.config.ts";
+// import redisClient from "../../../config/redis.config.ts";
 import GroupMemberModel from "../../groupMembers/model/groupMember.model.ts";
 
 export const getGroupMessages = async (
@@ -35,17 +35,17 @@ export const getGroupMessages = async (
       return;
     }
 
-    const cacheKey = `group:${groupId}:messages:page:${pageNum}`;
+    // const cacheKey = `group:${groupId}:messages:page:${pageNum}`;
 
-    // ✅ Check Redis cache
-    const cachedMessages = await redisClient.get(cacheKey);
-    if (cachedMessages) {
-      console.log("Cached messages");
-      res
-        .status(200)
-        .json({ page: pageNum, messages: JSON.parse(cachedMessages) });
-      return;
-    }
+    // // ✅ Check Redis cache
+    // const cachedMessages = await redisClient.get(cacheKey);
+    // if (cachedMessages) {
+    //   console.log("Cached messages");
+    //   res
+    //     .status(200)
+    //     .json({ page: pageNum, messages: JSON.parse(cachedMessages) });
+    //   return;
+    // }
 
     // ✅ Fetch from MongoDB
     const messages = await MessageModel.find({ groupId })
@@ -54,8 +54,8 @@ export const getGroupMessages = async (
       .limit(limitNum);
 
     // ✅ Store result in Redis (expires in 5 minutes)
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(messages)); // 300 seconds (5 min)
-    console.log("Fetched messages from MongoDB");
+    // await redisClient.setEx(cacheKey, 300, JSON.stringify(messages)); // 300 seconds (5 min)
+    // console.log("Fetched messages from MongoDB");
 
     res.status(200).json({ page: pageNum, messages });
   } catch (error) {
@@ -97,10 +97,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     // ✅ Invalidate all pages of messages for this group
-    const keys = await redisClient.keys(`group:${groupId}:messages:*`);
-    if (keys.length > 0) {
-      await redisClient.del(keys);
-    }
+    // const keys = await redisClient.keys(`group:${groupId}:messages:*`);
+    // if (keys.length > 0) {
+    //   await redisClient.del(keys);
+    // }
 
     res.status(201).json({ message: "Message sent successfully", newMessage });
   } catch (error) {
@@ -140,10 +140,10 @@ export const markGroupMessagesAsSeen = async (
     );
 
     // ✅ Invalidate Redis cache
-    const keys = await redisClient.keys(`group:${groupId}:messages:*`);
-    if (keys.length > 0) {
-      await redisClient.del(keys);
-    }
+    // const keys = await redisClient.keys(`group:${groupId}:messages:*`);
+    // if (keys.length > 0) {
+    //   await redisClient.del(keys);
+    // }
 
     res.status(200).json({ message: "Messages marked as seen" });
   } catch (error) {

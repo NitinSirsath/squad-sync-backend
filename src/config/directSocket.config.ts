@@ -85,6 +85,9 @@ export const setupSocketIO = (app: Express) => {
 
       const { groupId, senderId, message, messageType, fileUrl } = data;
 
+      // ✅ Ensure sender is in the room
+      socket.join(groupId);
+
       // ✅ Check if sender is a member of the group
       const isMember = await GroupMemberModel.exists({
         groupId,
@@ -108,8 +111,10 @@ export const setupSocketIO = (app: Express) => {
 
       console.log("✅ Group Message saved:", newMessage);
 
-      // ✅ Broadcast message to all group members
-      io.to(groupId).emit("newGroupMessage", newMessage);
+      // ✅ Wait before broadcasting to ensure room join is completed
+      setTimeout(() => {
+        io.to(groupId).emit("newGroupMessage", newMessage);
+      }, 100); // ⏳ Small delay to ensure user joins the room before receiving messages
     });
 
     // ✅ Handle user disconnect
