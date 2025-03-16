@@ -62,6 +62,9 @@ export const setupSocketIO = (app: Express) => {
       if (senderSocketId) {
         io.to(senderSocketId).emit("newMessage", newMessage);
       }
+
+      // ✅ Emit a separate event to refresh chat list
+      io.emit("updateChatList");
     });
 
     // Disconnect user
