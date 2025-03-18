@@ -3,7 +3,7 @@ import jsonwebtoken, { JwtPayload } from "jsonwebtoken";
 import { UserType } from "../../../types/user.types.ts";
 import userCollection from "../../../models/user/userModels.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
-import redisClient from "../../../config/redis.config.ts";
+// import redisClient from "../../../config/redis.config.ts";
 import bcrypt from "bcryptjs";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import OrganizationModel from "../../organization/models/organization.model.ts";
@@ -29,7 +29,7 @@ const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
 
     const cacheKey = `user:${decoded?.user?._id}`;
 
-    const cacheUserInfo = await redisClient.get(cacheKey);
+    // const cacheUserInfo = await redisClient.get(cacheKey);
 
     // if (cacheUserInfo) {
     //   res.status(200).json({ userInfo: JSON.parse(cacheUserInfo) });
@@ -55,7 +55,7 @@ const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
     };
 
     // ✅ Store in Redis with Expiry (1 Hour)
-    await redisClient.set(cacheKey, JSON.stringify(obj));
+    // await redisClient.set(cacheKey, JSON.stringify(obj));
 
     res.status(200).json({
       // userInfo: obj,
@@ -69,11 +69,11 @@ const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
 const getAllUsers = async (req: Request, res: Response) => {
   try {
     const cacheKey = "user:all";
-    const cacheUsers = await redisClient.get(cacheKey);
-    if (cacheUsers) {
-      res.status(200).json({ users: JSON.parse(cacheUsers) });
-      return;
-    }
+    // const cacheUsers = await redisClient.get(cacheKey);
+    // if (cacheUsers) {
+    //   res.status(200).json({ users: JSON.parse(cacheUsers) });
+    //   return;
+    // }
     const users: UserType[] = await userCollection.find().select("-password");
 
     if (!users || users.length === 0) {
@@ -81,7 +81,7 @@ const getAllUsers = async (req: Request, res: Response) => {
       return;
     }
 
-    await redisClient.set(cacheKey, JSON.stringify(users));
+    // await redisClient.set(cacheKey, JSON.stringify(users));
 
     res.status(200).json({ users });
   } catch (error) {
@@ -94,7 +94,7 @@ const deleteUser = async (req: Request, res: Response) => {
     const { _id } = req.body;
     const cacheKey = `user:${_id}`;
     await userCollection.deleteOne({ _id: _id });
-    await redisClient.del(cacheKey);
+    // await redisClient.del(cacheKey);
     res.status(200).json({ message: "user deleted" });
   } catch (error) {
     handleError(res, error);
@@ -147,8 +147,8 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
       });
 
       // 🔥 Invalidate Organization Cache
-      await redisClient.del(`organization:${activeOrg}:members`);
-      await redisClient.del(`organization:${activeOrg}`);
+      // await redisClient.del(`organization:${activeOrg}:members`);
+      // await redisClient.del(`organization:${activeOrg}`);
 
       res.status(200).json({ message: "User invited to organization" });
       return;
@@ -173,8 +173,8 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     // 🔥 Invalidate Organization Cache
-    await redisClient.del(`organization:${activeOrg}:members`);
-    await redisClient.del(`organization:${activeOrg}`);
+    // await redisClient.del(`organization:${activeOrg}:members`);
+    // await redisClient.del(`organization:${activeOrg}`);
 
     res.status(201).json({
       message: "User created and added to organization",
@@ -201,15 +201,54 @@ const updateUserProfile = async (req: Request, res: Response) => {
       return;
     }
 
-    // 🔥 Invalidate User Cache
-    await redisClient.del(cacheKey);
+    // // 🔥 Invalidate User Cache
+    // await redisClient.del(cacheKey);
 
-    // ✅ Save updated user data in Redis
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(updatedUser));
+    // // ✅ Save updated user data in Redis
+    // await redisClient.setEx(cacheKey, 3600, JSON.stringify(updatedUser));
 
     res.status(200).json({ message: `User ${updatedUser.username} updated` });
   } catch (error) {
     handleError(res, error);
+  }
+};
+
+export const getUserProfileById = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+
+    // Check if the user ID is valid
+    if (!id) {
+      res.status(400).json({ error: "User ID is required" });
+      return;
+    }
+
+    // const cacheKey = `user:${id}`;
+
+    // ✅ Check Redis Cache
+    // const cachedUser = await redisClient.get(cacheKey);
+    // if (cachedUser) {
+    //   return res.status(200).json({ userInfo: JSON.parse(cachedUser) });
+    // }
+
+    // ✅ Fetch user from DB
+    const user = await userCollection.findOne({ _id: id });
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    // ✅ Store in Redis with Expiry (1 Hour)
+    // await redisClient.setEx(cacheKey, 3600, JSON.stringify(userInfo));
+
+    res.status(200).json({ user });
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).json({ error: "Server error" });
   }
 };
 

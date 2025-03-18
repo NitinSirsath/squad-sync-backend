@@ -6,6 +6,7 @@ import {
   deleteUser,
   updateUserProfile,
   createUser,
+  getUserProfileById,
 } from "./controllers/user.controllers.ts";
 import { authorize } from "../../middleware/authorize.ts";
 
@@ -20,6 +21,12 @@ userRoutes.post(
   authenticateToken,
   authorize(["admin", "manager"]),
   createUser
+);
+
+userRoutes.get(
+  "/:id/getUserByProfileId/",
+  authenticateToken,
+  getUserProfileById
 );
 
 export { userRoutes };
