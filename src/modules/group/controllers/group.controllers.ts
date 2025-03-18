@@ -137,3 +137,46 @@ export const getGroupById = async (
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const updateGroupInfo = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { groupId, name, description } = req.body;
+
+    // Validate required fields
+    if (!groupId) {
+      res.status(400).json({ message: "groupId is required." });
+      return;
+    }
+
+    // Check if the group exists
+    const existingGroup = await GroupModel.findById(groupId);
+    if (!existingGroup) {
+      res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    // If updating the name, check if it's already taken
+    if (name && name !== existingGroup.name) {
+      const nameExists = await GroupModel.findOne({ name });
+      if (nameExists) {
+        res.status(400).json({ message: "Group name already exists." });
+        return;
+      }
+    }
+
+    // Update the group
+    const updatedGroup = await GroupModel.findByIdAndUpdate(
+      groupId,
+      { $set: { ...(name && { name }), ...(description && { description }) } },
+      { new: true, runValidators: true }
+    ).lean();
+
+    res.json({ message: "Group updated successfully", group: updatedGroup });
+  } catch (error) {
+    console.error("Error updating group:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
