@@ -3,7 +3,7 @@ import GroupModel from "../models/group.model.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import GroupMemberModel from "../../groupMembers/model/groupMember.model.ts";
-import redisClient from "../../../config/redis.config.ts";
+// import redisClient from "../../../config/redis.config.ts";
 
 export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -49,7 +49,7 @@ export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     // ✅ Invalidate Redis cache for group list
-    await redisClient.del(`groups:${orgId}:${createdBy}`);
+    // await redisClient.del(`groups:${orgId}:${createdBy}`);
 
     res.status(201).json({
       message: "Group created successfully",
@@ -80,11 +80,11 @@ export const getAllGroups = async (
     const cacheKey = `groups:${activeOrg}:${userId}`;
 
     // ✅ Check Redis cache first
-    const cachedGroups = await redisClient.get(cacheKey);
-    if (cachedGroups) {
-      res.status(200).json({ groups: JSON.parse(cachedGroups) });
-      return;
-    }
+    // const cachedGroups = await redisClient.get(cacheKey);
+    // if (cachedGroups) {
+    //   res.status(200).json({ groups: JSON.parse(cachedGroups) });
+    //   return;
+    // }
 
     // ✅ Fetch all group IDs where the user is a member
     const userGroupMemberships = await GroupMemberModel.find({ userId }).select(
@@ -101,10 +101,39 @@ export const getAllGroups = async (
     });
 
     // ✅ Store in Redis (cache expires in 10 minutes)
-    await redisClient.setEx(cacheKey, 600, JSON.stringify(groups));
+    // await redisClient.setEx(cacheKey, 600, JSON.stringify(groups));
 
     res.status(200).json({ groups });
   } catch (error) {
     handleError(res, error);
+  }
+};
+
+export const getGroupById = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+
+    // Fetch group details
+    const group = await GroupModel.findById(id)
+      .populate("createdBy", "name email") // Include creator details
+      .populate("orgId", "name") // Include organization details
+      .lean();
+
+    if (!group) {
+      res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    // Get actual member count from GroupMember collection
+    const membersCount = await GroupMemberModel.countDocuments({ groupId: id });
+
+    // Return group details with correct members count
+    res.json({ ...group, membersCount });
+  } catch (error) {
+    console.error("Error fetching group:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
