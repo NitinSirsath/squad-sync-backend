@@ -19,7 +19,7 @@ const port = process.env.PORT || 3000;
 // ✅ Apply CORS middleware before routes
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.FRONTEND_URL,
     methods: "GET,POST",
     allowedHeaders: "Content-Type,Authorization",
   })
