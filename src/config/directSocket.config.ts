@@ -5,6 +5,7 @@ import DirectMessageModel from "../modules/directMessages/models/directMessage.m
 import MessageModel from "../modules/groupMessages/models/groupMessage.model.ts";
 import UserModel from "../models/user/userModels.ts";
 import GroupMemberModel from "../modules/groupMembers/model/groupMember.model.ts";
+import mongoose from "mongoose";
 
 const connectedUsers = new Map<string, string>(); // Map<userId, socketId>
 
@@ -67,6 +68,38 @@ export const setupSocketIO = (app: Express) => {
 
       // ✅ Emit event to refresh chat list
       io.emit("updateChatList");
+    });
+
+    socket.on("markMessagesAsSeen", async ({ senderId, receiverId }) => {
+      console.log(
+        `✅ Marking messages from ${senderId} as seen by ${receiverId}`
+      );
+
+      if (
+        !mongoose.Types.ObjectId.isValid(senderId) ||
+        !mongoose.Types.ObjectId.isValid(receiverId)
+      ) {
+        return socket.emit("markSeenError", "Invalid sender or receiver ID.");
+      }
+
+      // ✅ Update seen status for all unread messages
+      await DirectMessageModel.updateMany(
+        { senderId, receiverId, seen: false },
+        { seen: true }
+      );
+
+      // ✅ Notify sender that their messages were seen
+      const senderSocketId = connectedUsers.get(senderId);
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messagesMarkedAsSeen", {
+          senderId,
+          receiverId,
+        });
+      }
+
+      console.log(
+        `✅ Messages from ${senderId} to ${receiverId} marked as seen`
+      );
     });
 
     // ✅ Handle group messages
