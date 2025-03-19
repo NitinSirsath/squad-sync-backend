@@ -5,6 +5,7 @@ import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 // import redisClient from "../../../config/redis.config.ts";
 import GroupMemberModel from "../../groupMembers/model/groupMember.model.ts";
+import UserModel from "../../../models/user/userModels.ts";
 
 export const getGroupMessages = async (
   req: AuthenticatedRequest,
@@ -35,29 +36,48 @@ export const getGroupMessages = async (
       return;
     }
 
-    // const cacheKey = `group:${groupId}:messages:page:${pageNum}`;
-
-    // // ✅ Check Redis cache
-    // const cachedMessages = await redisClient.get(cacheKey);
-    // if (cachedMessages) {
-    //   console.log("Cached messages");
-    //   res
-    //     .status(200)
-    //     .json({ page: pageNum, messages: JSON.parse(cachedMessages) });
-    //   return;
-    // }
-
-    // ✅ Fetch from MongoDB
+    // ✅ Fetch messages and populate sender info
     const messages = await MessageModel.find({ groupId })
       .sort({ createdAt: -1 })
       .skip((pageNum - 1) * limitNum)
-      .limit(limitNum);
+      .limit(limitNum)
+      .lean(); // Convert Mongoose documents to plain objects for better performance
 
-    // ✅ Store result in Redis (expires in 5 minutes)
-    // await redisClient.setEx(cacheKey, 300, JSON.stringify(messages)); // 300 seconds (5 min)
-    // console.log("Fetched messages from MongoDB");
+    // ✅ Fetch sender details separately from `UserModel`
+    const senderIds = [
+      ...new Set(messages.map((msg) => msg.senderId.toString())),
+    ]; // Unique sender IDs
+    const senders = await UserModel.find(
+      { _id: { $in: senderIds } },
+      "firstName lastName profilePicture"
+    ).lean();
 
-    res.status(200).json({ page: pageNum, messages });
+    // ✅ Create a sender map for quick lookup
+    const senderMap = senders.reduce((acc, sender) => {
+      acc[sender._id.toString()] = {
+        senderName: `${sender.firstName} ${sender.lastName}`,
+        profilePicture: sender.profilePicture || null,
+      };
+      return acc;
+    }, {} as Record<string, { senderName: string; profilePicture: string | null }>);
+
+    // ✅ Format messages with sender details
+    const formattedMessages = messages.map((msg) => ({
+      _id: msg._id,
+      groupId: msg.groupId,
+      senderId: msg.senderId,
+      senderName:
+        senderMap[msg.senderId.toString()]?.senderName || "Unknown User",
+      profilePicture:
+        senderMap[msg.senderId.toString()]?.profilePicture || null,
+      message: msg.message,
+      messageType: msg.messageType,
+      fileUrl: msg.fileUrl || null,
+      createdAt: msg.createdAt,
+      // updatedAt: msg.updatedAt,
+    }));
+
+    res.status(200).json({ page: pageNum, messages: formattedMessages });
   } catch (error) {
     handleError(res, error);
   }
