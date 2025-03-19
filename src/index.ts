@@ -12,6 +12,7 @@ import { directMessageRoutes } from "./modules/directMessages/directMessage.rout
 import { setupSocketIO } from "./config/directSocket.config.ts";
 import organizationRoutes from "./modules/organization/organization.route.ts";
 import bugRouter from "./modules/bugReport/bug.route.ts";
+import inviteRouter from "./modules/invitations/invite.route.ts.ts";
 
 config();
 const app = express();
@@ -42,6 +43,7 @@ app.use("/api/group-messages", messageRoutes);
 app.use("/api/direct-messages", directMessageRoutes);
 app.use("/api/organization", organizationRoutes);
 app.use("/api/bug-report", bugRouter);
+app.use("/api/invite", inviteRouter);
 
 // ✅ Connect Database
 connectDB();
