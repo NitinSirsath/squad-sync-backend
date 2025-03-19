@@ -1,7 +1,7 @@
 import { Response } from "express";
 import GroupMemberModel from "../model/groupMember.model.ts";
 import { AuthenticatedRequest } from "../../../types/authRequest.types.ts";
-import redisClient from "../../../config/redis.config.ts";
+// import redisClient from "../../../config/redis.config.ts";
 import { handleError } from "../../../utils/errorHandler.ts";
 
 // 🔹 API: Add a Member to a Group
@@ -36,7 +36,7 @@ export const addMemberToGroup = async (
     await newMember.save();
 
     // ✅ Invalidate Redis cache for group members
-    await redisClient.del(`group:${groupId}:members`);
+    // await redisClient.del(`group:${groupId}:members`);
 
     res.status(201).json({ message: "User added to group", newMember });
   } catch (error) {
@@ -87,7 +87,7 @@ export const removeMemberFromGroup = async (
     }
 
     // ✅ Invalidate Redis cache for group members
-    await redisClient.del(`group:${groupId}:members`);
+    // await redisClient.del(`group:${groupId}:members`);
 
     res.status(200).json({ message: "User removed from group" });
   } catch (error) {
@@ -106,11 +106,11 @@ export const getGroupMembers = async (
     const cacheKey = `group:${groupId}:members`;
 
     // ✅ Check Redis cache first
-    const cachedMembers = await redisClient.get(cacheKey);
-    if (cachedMembers) {
-      res.status(200).json({ members: JSON.parse(cachedMembers) });
-      return;
-    }
+    // const cachedMembers = await redisClient.get(cacheKey);
+    // if (cachedMembers) {
+    //   res.status(200).json({ members: JSON.parse(cachedMembers) });
+    //   return;
+    // }
 
     // ✅ Fetch from MongoDB if not cached
     const members = await GroupMemberModel.find({ groupId })
@@ -118,7 +118,7 @@ export const getGroupMembers = async (
       .select("role joinedAt");
 
     // ✅ Store in Redis (cache expires in 5 minutes)
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(members));
+    // await redisClient.setEx(cacheKey, 300, JSON.stringify(members));
 
     res.status(200).json({ members });
   } catch (error) {
